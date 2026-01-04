@@ -1,8 +1,8 @@
 # 超軽量なNginxイメージを使用
 FROM nginx:alpine
 
-# ローカルのindex.htmlを、コンテナ内の公開フォルダにコピー
-COPY index.html /usr/share/nginx/html/index.html
+# ローカルのsrc/index.htmlを、コンテナ内の公開フォルダにコピー
+COPY src/index.html /usr/share/nginx/html/index.html
 
 # Cloud Runはポート8080をリッスンするため、Nginxの設定を微調整する必要がある場合が多いですが、
 # 環境変数PORTを自動的にバインドする設定や、デフォルト設定でも動く場合があります。
