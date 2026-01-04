@@ -68,6 +68,27 @@
             </p>
         </div>
 
+        <!-- API Key Settings -->
+        <div class="max-w-md mx-auto bg-white p-4 rounded-xl border border-stone-200 shadow-sm space-y-3">
+            <div class="flex items-center justify-between">
+                <h2 class="text-sm font-bold text-stone-700 flex items-center gap-2">
+                    <i data-lucide="key" class="w-4 h-4 text-orange-400"></i>
+                    APIキー設定
+                </h2>
+                <span id="key-status"
+                    class="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-500">未設定</span>
+            </div>
+            <div class="flex gap-2">
+                <input type="password" id="api-key-input" placeholder="Google AI Studio API Key (AIza...)"
+                    class="flex-1 text-sm border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-200 transition-all">
+                <button id="save-key-btn"
+                    class="bg-stone-800 text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-stone-700 transition-colors">
+                    保存
+                </button>
+            </div>
+            <p class="text-[10px] text-stone-400">※キーはブラウザにのみ保存され、サーバーへは送信されません。</p>
+        </div>
+
         <!-- Main Content Area -->
         <div class="bg-white rounded-2xl shadow-xl overflow-hidden border border-stone-100 min-h-[400px]">
 
@@ -222,7 +243,7 @@
         // ==========================================
 
         // 1. Google AI Studio (Gemini) のAPIキー
-        const apiKey = ""; // プレビュー環境では空欄でOK。デプロイ時は "AIza..." 等を入力。
+        let apiKey = localStorage.getItem('GEMINI_API_KEY') || "";
 
         // 2. Firebase 構成オブジェクト
         // プレビュー環境では __firebase_config を使用します。
@@ -296,6 +317,39 @@
         const modalImg = document.getElementById('modal-img');
         const downloadLink = document.getElementById('download-link');
         const closeModalBtn = document.getElementById('close-modal-btn');
+
+        // --- API Key Management ---
+        const apiKeyInput = document.getElementById('api-key-input');
+        const saveKeyBtn = document.getElementById('save-key-btn');
+        const keyStatus = document.getElementById('key-status');
+
+        const updateKeyStatus = () => {
+            if (apiKey) {
+                keyStatus.textContent = '設定済み';
+                keyStatus.className = 'text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-600';
+                apiKeyInput.value = apiKey;
+            } else {
+                keyStatus.textContent = '未設定';
+                keyStatus.className = 'text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-500';
+            }
+        };
+
+        saveKeyBtn.addEventListener('click', () => {
+            const val = apiKeyInput.value.trim();
+            if (val) {
+                localStorage.setItem('GEMINI_API_KEY', val);
+                apiKey = val;
+                alert('APIキーを保存しました。');
+                updateKeyStatus();
+            } else {
+                localStorage.removeItem('GEMINI_API_KEY');
+                apiKey = "";
+                alert('APIキーを削除しました。');
+                updateKeyStatus();
+            }
+        });
+
+        updateKeyStatus();
 
         // --- Event Listeners ---
         uploadView.addEventListener('click', () => fileInput.click());
