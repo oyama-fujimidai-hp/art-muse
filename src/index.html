@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Art Muse - アート感想ジェネレーター</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+        body { font-family: 'Noto Sans JP', sans-serif; }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a8a29e; }
+    </style>
+</head>
+<body class="bg-orange-50/50 text-stone-800 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto space-y-12">
+        
+        <!-- Header -->
+        <div class="text-center space-y-2 pt-4">
+            <h1 class="text-3xl font-bold text-stone-800 tracking-tight flex items-center justify-center gap-2">
+                <i data-lucide="sparkles" class="w-8 h-8 text-orange-400 fill-orange-400"></i>
+                Art Muse
+            </h1>
+            <p class="text-stone-500 font-medium">
+                アート感想ジェネレーター
+            </p>
+            <p class="text-xs text-stone-400">
+                絵画を見せられた時、心が温まる「やさしい言葉」をAIが提案します。
+            </p>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="bg-white rounded-2xl shadow-xl overflow-hidden border border-stone-100 min-h-[400px]">
+            
+            <!-- Upload View -->
+            <div id="upload-view" class="p-12 m-4 border-2 border-dashed border-stone-200 rounded-xl flex flex-col items-center justify-center gap-4 transition-colors hover:border-orange-300 hover:bg-orange-50/30 cursor-pointer min-h-[300px]">
+                <div class="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center text-orange-400">
+                    <i data-lucide="upload" class="w-8 h-8"></i>
+                </div>
+                <div class="text-center">
+                    <p class="text-lg font-medium text-stone-700">画像をアップロード</p>
+                    <p class="text-sm text-stone-400 mt-1">ドラッグ＆ドロップ または クリック</p>
+                </div>
+                <input type="file" id="file-input" accept="image/*" class="hidden">
+            </div>
+
+            <!-- Preview & Result View (Hidden by default) -->
+            <div id="result-view" class="hidden grid md:grid-cols-2 gap-0 h-full">
+                
+                <!-- Image Preview -->
+                <div class="relative bg-stone-900 flex items-center justify-center p-6 min-h-[400px]">
+                    <img id="preview-img" src="" alt="Uploaded Art" class="max-h-[500px] max-w-full rounded-lg shadow-2xl object-contain">
+                    <button id="reset-btn" class="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors backdrop-blur-sm" title="画像を削除">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <!-- Control Panel -->
+                <div class="p-6 md:p-8 flex flex-col bg-white h-full relative overflow-y-auto max-h-[600px]">
+                    
+                    <!-- Initial State -->
+                    <div id="action-prompt" class="flex-1 flex flex-col items-center justify-center text-center space-y-4 py-8">
+                        <i data-lucide="image" class="w-12 h-12 text-stone-200"></i>
+                        <p class="text-stone-500">この作品のやさしい感想を作成しますか？</p>
+                        <button id="generate-btn" class="px-6 py-3 bg-orange-400 hover:bg-orange-500 text-white font-medium rounded-full shadow-lg shadow-orange-100 transition-all transform hover:scale-105 active:scale-95 flex items-center gap-2">
+                            <i data-lucide="sparkles" class="w-4 h-4"></i>
+                            感想を生成する
+                        </button>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div id="loading-state" class="hidden flex-1 flex flex-col items-center justify-center text-center space-y-4 py-8">
+                        <i data-lucide="loader-2" class="w-10 h-10 text-orange-400 animate-spin"></i>
+                        <p class="text-stone-500 animate-pulse">作品の温かさを感じ取っています...</p>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="error-state" class="hidden flex-1 flex flex-col items-center justify-center text-center space-y-4 py-8 text-red-500">
+                        <p id="error-msg">エラーが発生しました</p>
+                        <button id="retry-btn" class="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-sm font-medium flex items-center gap-2">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                            再試行
+                        </button>
+                    </div>
+
+                    <!-- Results List -->
+                    <div id="compliments-list" class="hidden space-y-6 fade-in pb-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-stone-800 mb-1 flex items-center gap-2">
+                                <i data-lucide="heart" class="w-5 h-5 text-orange-400 fill-orange-400"></i>
+                                おすすめの感想
+                            </h3>
+                            <p class="text-sm text-stone-400">履歴にも自動保存されました</p>
+                        </div>
+                        
+                        <div id="compliments-container" class="space-y-3">
+                            <!-- Items will be injected here -->
+                        </div>
+
+                        <div class="pt-4 border-t border-stone-100 flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-8">
+                            <button id="regen-btn" class="text-sm text-stone-500 hover:text-orange-500 hover:underline flex items-center gap-1.5 font-medium transition-colors">
+                                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                                別の感想を生成する
+                            </button>
+                            <button id="new-upload-btn" class="px-4 py-2 bg-stone-800 hover:bg-stone-700 text-white text-sm font-medium rounded-full shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+                                <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                                新しい画像をアップロード
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- History Section -->
+        <div id="history-section" class="space-y-6 pb-12 hidden">
+            <div class="flex items-center gap-2 pb-2 border-b border-stone-200">
+                <i data-lucide="history" class="w-6 h-6 text-stone-400"></i>
+                <h2 class="text-xl font-bold text-stone-700">これまでの履歴</h2>
+                <span class="text-xs text-stone-400 ml-auto">※画像クリックで拡大</span>
+            </div>
+            
+            <div id="history-loading" class="text-center py-8 text-stone-400">
+                <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2"></i>
+                履歴を読み込み中...
+            </div>
+
+            <div id="history-empty" class="hidden text-center py-12 bg-white rounded-xl border border-dashed border-stone-200 text-stone-400">
+                <p>まだ履歴がありません。画像をアップロードして感想を作ってみましょう。</p>
+            </div>
+
+            <div id="history-grid" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- History items injected here -->
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <p class="text-center text-xs text-stone-400">
+            Powered by Gemini 2.5 Flash Preview • 画像と感想はブラウザ履歴として保存されます
+        </p>
+
+    </div>
+
+    <!-- Image Modal -->
+    <div id="image-modal" class="fixed inset-0 z-50 bg-black/90 hidden flex flex-col items-center justify-center p-4 transition-opacity duration-300 opacity-0 pointer-events-none">
+        <button id="close-modal-btn" class="absolute top-4 right-4 text-white hover:text-stone-300 transition-colors p-2">
+            <i data-lucide="x" class="w-8 h-8"></i>
+        </button>
+        <img id="modal-img" src="" class="max-h-[80vh] max-w-full rounded shadow-2xl object-contain mb-4">
+        <a id="download-link" href="#" download="saved_art.jpg" class="px-6 py-2 bg-white text-stone-800 rounded-full font-medium hover:bg-stone-100 transition-colors flex items-center gap-2">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            画像を保存
+        </a>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ==========================================
+        // 【設定エリア】
+        // この環境（Canvas）で動かす場合は、以下の変数を変更しないでください。
+        // Cloud Run等にデプロイする際のみ、ご自身の実際のキーに書き換えてください。
+        // ==========================================
+        
+        // 1. Google AI Studio (Gemini) のAPIキー
+        const apiKey = ""; // プレビュー環境では空欄でOK。デプロイ時は "AIza..." 等を入力。
+
+        // 2. Firebase 構成オブジェクト
+        // プレビュー環境では __firebase_config を使用します。
+        // デプロイ時は、elseブロック内のオブジェクトを有効にし、値を埋めてください。
+        let firebaseConfig;
+        if (typeof __firebase_config !== 'undefined') {
+            firebaseConfig = JSON.parse(__firebase_config);
+        } else {
+            firebaseConfig = {
+                apiKey: "YOUR_FIREBASE_API_KEY",
+                authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+                projectId: "YOUR_PROJECT_ID",
+                storageBucket: "YOUR_PROJECT_ID.appspot.com",
+                messagingSenderId: "SENDER_ID",
+                appId: "APP_ID"
+            };
+        }
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'art-compliment-app';
+        
+        // ==========================================
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        let currentImageBase64 = null;
+        let expandedHistoryItems = {};
+
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // --- Auth Logic ---
+        // 認証フローの修正: カスタムトークンを優先し、失敗時に匿名認証へ
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                console.error("Auth error:", err);
+            }
+        };
+
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user;
+            if (user) {
+                document.getElementById('history-section').classList.remove('hidden');
+                setupHistoryListener(user.uid);
+            }
+        });
+
+        // 認証処理を開始
+        initAuth();
+
+        // --- UI Elements ---
+        const uploadView = document.getElementById('upload-view');
+        const resultView = document.getElementById('result-view');
+        const fileInput = document.getElementById('file-input');
+        const previewImg = document.getElementById('preview-img');
+        const actionPrompt = document.getElementById('action-prompt');
+        const loadingState = document.getElementById('loading-state');
+        const errorState = document.getElementById('error-state');
+        const complimentsList = document.getElementById('compliments-list');
+        const complimentsContainer = document.getElementById('compliments-container');
+        const imageModal = document.getElementById('image-modal');
+        const modalImg = document.getElementById('modal-img');
+        const downloadLink = document.getElementById('download-link');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        
+        // --- Event Listeners ---
+        uploadView.addEventListener('click', () => fileInput.click());
+        uploadView.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); });
+        uploadView.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if(e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if(e.target.files[0]) processFile(e.target.files[0]);
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', resetApp);
+        document.getElementById('new-upload-btn').addEventListener('click', () => {
+            resetApp();
+            fileInput.click();
+        });
+        document.getElementById('generate-btn').addEventListener('click', generateCompliments);
+        document.getElementById('regen-btn').addEventListener('click', generateCompliments);
+        document.getElementById('retry-btn').addEventListener('click', generateCompliments);
+
+        // Modal Logic
+        window.openModal = (imgSrc) => {
+            modalImg.src = imgSrc;
+            downloadLink.href = imgSrc;
+            imageModal.classList.remove('hidden', 'pointer-events-none');
+            // Trigger reflow
+            void imageModal.offsetWidth;
+            imageModal.classList.remove('opacity-0');
+        };
+
+        const closeModal = () => {
+            imageModal.classList.add('opacity-0');
+            setTimeout(() => {
+                imageModal.classList.add('hidden', 'pointer-events-none');
+                modalImg.src = '';
+            }, 300);
+        };
+
+        closeModalBtn.addEventListener('click', closeModal);
+        imageModal.addEventListener('click', (e) => {
+            if (e.target === imageModal) closeModal();
+        });
+
+
+        // --- Functions ---
+
+        function processFile(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('画像ファイルのみアップロード可能です。');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                currentImageBase64 = e.target.result.split(',')[1];
+                previewImg.src = e.target.result;
+                uploadView.classList.add('hidden');
+                resultView.classList.remove('hidden');
+                // Reset states
+                actionPrompt.classList.remove('hidden');
+                loadingState.classList.add('hidden');
+                errorState.classList.add('hidden');
+                complimentsList.classList.add('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function resetApp() {
+            currentImageBase64 = null;
+            previewImg.src = "";
+            fileInput.value = "";
+            uploadView.classList.remove('hidden');
+            resultView.classList.add('hidden');
+        }
+
+        async function generateCompliments() {
+            if (!currentImageBase64) return;
+
+            // UI Update
+            actionPrompt.classList.add('hidden');
+            complimentsList.classList.add('hidden');
+            errorState.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+
+            const prompt = `
+                この画像を誰か（作者や持ち主）に見せられたというシチュエーションです。
+                この絵画作品について、「やさしく」「ほっこりする」「作者を喜ばせる」ような感想を5つ、箇条書きで生成してください。
+
+                # 要件
+                1. 一文は短く（35文字以内推奨）。
+                2. 専門用語は避け、心のこもった温かい言葉を選ぶ。
+                3. 「優しさ」「温かみ」「癒やし」「安心感」などが伝わる視点を含める。
+                4. 批評的にならず、その絵があることで心が和むようなトーンで。
+                5. 出力フォーマットは純粋なテキストの箇条書き（行頭の記号は不要）だけにしてください。
+            `;
+
+            try {
+                const text = await callGeminiAPI(currentImageBase64, prompt);
+                const lines = text.split('\n')
+                    .map(line => line.replace(/^[\s-*•・]+/, '').trim())
+                    .filter(line => line.length > 0);
+                
+                renderCompliments(lines);
+                
+                // Save to history
+                if (currentUser) {
+                    saveToHistory(lines);
+                }
+
+                loadingState.classList.add('hidden');
+                complimentsList.classList.remove('hidden');
+
+            } catch (err) {
+                console.error(err);
+                loadingState.classList.add('hidden');
+                errorState.classList.remove('hidden');
+            }
+        }
+
+        function renderCompliments(lines) {
+            complimentsContainer.innerHTML = '';
+            lines.forEach((line, idx) => {
+                const div = document.createElement('div');
+                div.className = "group relative p-4 bg-orange-50/50 hover:bg-orange-50 border border-orange-100 hover:border-orange-200 rounded-xl transition-all duration-200";
+                div.innerHTML = `
+                    <p class="text-stone-700 pr-8 font-medium leading-relaxed">${line}</p>
+                    <button onclick="copyText('${line.replace(/'/g, "\\'")}', this)" class="absolute top-1/2 -translate-y-1/2 right-3 p-2 text-stone-400 hover:text-orange-500 hover:bg-white rounded-lg transition-colors" title="コピー">
+                        <i data-lucide="copy" class="w-5 h-5"></i>
+                    </button>
+                `;
+                complimentsContainer.appendChild(div);
+            });
+            lucide.createIcons();
+        }
+
+        // Global function for copy button
+        window.copyText = (text, btnElement) => {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            // UI Feedback
+            const icon = btnElement.querySelector('svg'); // Assuming lucide renders svg
+            const originalIcon = btnElement.innerHTML;
+            btnElement.innerHTML = `<i data-lucide="check" class="w-5 h-5 text-green-500"></i>`;
+            lucide.createIcons();
+            
+            setTimeout(() => {
+                btnElement.innerHTML = originalIcon; // Revert using lucide logic would be cleaner but innerHTML is fast
+                // Ideally strictly re-render icon
+                btnElement.innerHTML = `<i data-lucide="copy" class="w-5 h-5"></i>`;
+                lucide.createIcons();
+            }, 2000);
+        };
+
+        // Retry logic for Gemini API
+        async function callGeminiAPI(base64Image, promptText, retries = 0) {
+            const model = 'gemini-2.5-flash-preview-09-2025';
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+            
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: promptText },
+                        { inline_data: { mime_type: "image/jpeg", data: base64Image } }
+                    ]
+                }]
+            };
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!text) throw new Error('No content generated');
+                return text;
+            } catch (error) {
+                if (retries < 3) {
+                    await new Promise(r => setTimeout(r, Math.pow(2, retries) * 1000));
+                    return callGeminiAPI(base64Image, promptText, retries + 1);
+                }
+                throw error;
+            }
+        }
+
+        // --- History Logic ---
+
+        async function processImageForStorage(base64Image) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.src = `data:image/jpeg;base64,${base64Image}`;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    
+                    const MAX_DIMENSION = 800;
+                    if (width > height) {
+                        if (width > MAX_DIMENSION) { height *= MAX_DIMENSION / width; width = MAX_DIMENSION; }
+                    } else {
+                        if (height > MAX_DIMENSION) { width *= MAX_DIMENSION / height; height = MAX_DIMENSION; }
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    let quality = 0.7;
+                    let dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    
+                    while (dataUrl.length > 900000 && quality > 0.1) {
+                        quality -= 0.1;
+                        dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    }
+
+                    resolve(dataUrl);
+                };
+            });
+        }
+
+        async function saveToHistory(lines) {
+            try {
+                const storedImage = await processImageForStorage(currentImageBase64);
+                
+                await addDoc(collection(db, 'artifacts', appId, 'users', currentUser.uid, 'compliment_history'), {
+                    compliments: lines,
+                    thumbnail: storedImage,
+                    timestamp: serverTimestamp()
+                });
+            } catch (err) {
+                console.error("Error saving history:", err);
+            }
+        }
+
+        function setupHistoryListener(userId) {
+            const q = collection(db, 'artifacts', appId, 'users', userId, 'compliment_history');
+            onSnapshot(q, (snapshot) => {
+                const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                // Sort by timestamp desc
+                docs.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+                renderHistory(docs);
+            }, (error) => {
+                console.error("History error", error);
+                document.getElementById('history-loading').textContent = "履歴の読み込みに失敗しました";
+            });
+        }
+
+        window.deleteHistoryItem = async (id) => {
+            if (!currentUser) return;
+            if (!confirm('この履歴を削除しますか？')) return;
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'compliment_history', id));
+            } catch (err) { console.error(err); }
+        };
+
+        window.toggleHistoryExpand = (id) => {
+            expandedHistoryItems[id] = !expandedHistoryItems[id];
+            const contentDiv = document.getElementById(`history-content-${id}`);
+            const btn = document.getElementById(`expand-btn-${id}`);
+            
+            if (contentDiv && btn) {
+                const allItems = contentDiv.querySelectorAll('.history-line');
+                const isExpanded = expandedHistoryItems[id];
+                
+                allItems.forEach((el, idx) => {
+                    if (idx >= 2) el.classList.toggle('hidden', !isExpanded);
+                });
+                
+                btn.innerHTML = isExpanded 
+                    ? `<i data-lucide="chevron-up" class="w-3 h-3"></i> 閉じる`
+                    : `<i data-lucide="chevron-down" class="w-3 h-3"></i> すべて見る`;
+                lucide.createIcons();
+            }
+        };
+
+        function renderHistory(items) {
+            const grid = document.getElementById('history-grid');
+            const loading = document.getElementById('history-loading');
+            const empty = document.getElementById('history-empty');
+
+            loading.classList.add('hidden');
+            
+            if (items.length === 0) {
+                empty.classList.remove('hidden');
+                grid.classList.add('hidden');
+                return;
+            }
+
+            empty.classList.add('hidden');
+            grid.classList.remove('hidden');
+            grid.innerHTML = '';
+
+            items.forEach(item => {
+                const dateStr = item.timestamp ? new Date(item.timestamp.toMillis()).toLocaleString('ja-JP', {
+                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                }) : '日付不明';
+
+                const lines = item.compliments || [];
+                const isExpanded = !!expandedHistoryItems[item.id];
+                const showExpandBtn = lines.length > 2;
+
+                const div = document.createElement('div');
+                div.className = "bg-white p-4 rounded-xl shadow-sm border border-stone-100 flex gap-4 hover:shadow-md transition-shadow";
+                
+                let linesHtml = '';
+                lines.forEach((line, idx) => {
+                    const hiddenClass = (idx >= 2 && !isExpanded) ? 'hidden' : '';
+                    linesHtml += `<p class="text-sm text-stone-600 history-line ${hiddenClass}">• ${line}</p>`;
+                });
+
+                div.innerHTML = `
+                    <div class="w-24 h-24 flex-shrink-0 bg-stone-100 rounded-lg overflow-hidden border border-stone-100 cursor-pointer hover:opacity-90 transition-opacity" onclick="openModal('${item.thumbnail}')" title="拡大して見る">
+                        ${item.thumbnail ? `<img src="${item.thumbnail}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center text-stone-300"><i data-lucide="image" class="w-6 h-6"></i></div>`}
+                    </div>
+                    <div class="flex-1 min-w-0" id="history-content-${item.id}">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-xs text-stone-400 flex items-center gap-1">
+                                <i data-lucide="clock" class="w-3 h-3"></i> ${dateStr}
+                            </span>
+                            <button onclick="deleteHistoryItem('${item.id}')" class="text-stone-300 hover:text-red-400 p-1 rounded hover:bg-red-50 transition-colors" title="削除">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <div class="space-y-1">
+                            ${linesHtml}
+                            ${showExpandBtn ? `
+                                <button id="expand-btn-${item.id}" onclick="toggleHistoryExpand('${item.id}')" class="text-xs text-orange-400 font-medium hover:text-orange-500 hover:underline flex items-center gap-1 mt-2">
+                                    ${isExpanded ? `<i data-lucide="chevron-up" class="w-3 h-3"></i> 閉じる` : `<i data-lucide="chevron-down" class="w-3 h-3"></i> すべて見る (${lines.length - 2}件)`}
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(div);
+            });
+            lucide.createIcons();
+        }
+    </script>
+</body>
+</html>
