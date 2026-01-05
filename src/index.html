@@ -253,12 +253,13 @@
             firebaseConfig = JSON.parse(__firebase_config);
         } else {
             firebaseConfig = {
-                apiKey: "YOUR_FIREBASE_API_KEY",
-                authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-                projectId: "YOUR_PROJECT_ID",
-                storageBucket: "YOUR_PROJECT_ID.appspot.com",
-                messagingSenderId: "SENDER_ID",
-                appId: "APP_ID"
+                apiKey: "AIzaSyAnM3F2yudZqwz_jJf5nBBY6ef-5nq9soM",
+                authDomain: "studious-lyceum-483104-u8.firebaseapp.com",
+                projectId: "studious-lyceum-483104-u8",
+                storageBucket: "studious-lyceum-483104-u8.firebasestorage.app",
+                messagingSenderId: "899633873958",
+                appId: "1:899633873958:web:e715ef2591fd6edb2712e7",
+                measurementId: "G-WMN5VWWQD9"
             };
         }
 
@@ -281,6 +282,12 @@
         // --- Auth Logic ---
         // 認証フローの修正: カスタムトークンを優先し、失敗時に匿名認証へ
         const initAuth = async () => {
+            // Firebase Configが正しく設定されていない場合は認証をスキップ
+            if (!firebaseConfig || !firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_FIREBASE_API_KEY") {
+                console.warn("Firebase API Key is not set. History feature will be disabled.");
+                document.getElementById('history-loading').textContent = "Firebaseの設定が未完了のため、履歴機能は利用できません。";
+                return;
+            }
             try {
                 console.log("Initializing auth...");
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -306,8 +313,10 @@
                 setupHistoryListener(user.uid);
             } else {
                 console.log("No user, waiting for auth...");
-                // 匿名認証を再試行
-                signInAnonymously(auth).catch(err => console.error("Retry auth error:", err));
+                // Firebase Configが有効な場合のみ匿名認証を再試行
+                if (firebaseConfig && firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_FIREBASE_API_KEY") {
+                    signInAnonymously(auth).catch(err => console.error("Retry auth error:", err));
+                }
             }
         });
 
