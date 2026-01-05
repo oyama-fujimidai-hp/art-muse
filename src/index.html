@@ -233,7 +233,7 @@
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ==========================================
@@ -282,6 +282,7 @@
         // --- Auth Logic ---
         // 認証フローの修正: カスタムトークンを優先し、失敗時に匿名認証へ
         const initAuth = async () => {
+            console.log("initAuth: checking config", firebaseConfig);
             // Firebase Configが正しく設定されていない場合は認証をスキップ
             if (!firebaseConfig || !firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_FIREBASE_API_KEY") {
                 console.warn("Firebase API Key is not set. History feature will be disabled.");
@@ -290,6 +291,9 @@
             }
             try {
                 console.log("Initializing auth...");
+                // 明示的にブラウザ永続性を設定
+                await setPersistence(auth, browserLocalPersistence);
+
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     console.log("Using custom token");
                     await signInWithCustomToken(auth, __initial_auth_token);
@@ -299,9 +303,8 @@
                 }
             } catch (err) {
                 console.error("Auth error detail:", err);
-                // 認証エラー時も履歴セクションを表示（ただし空か、読み込み中表示になる）
                 document.getElementById('history-section').classList.remove('hidden');
-                document.getElementById('history-loading').textContent = "認証エラー: " + err.message;
+                document.getElementById('history-loading').textContent = "認証エラー: " + err.message + " (Code: " + err.code + ")";
             }
         };
 
