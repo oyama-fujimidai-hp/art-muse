@@ -282,23 +282,32 @@
         // 認証フローの修正: カスタムトークンを優先し、失敗時に匿名認証へ
         const initAuth = async () => {
             try {
+                console.log("Initializing auth...");
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    console.log("Using custom token");
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
+                    console.log("Using anonymous sign-in");
                     await signInAnonymously(auth);
                 }
             } catch (err) {
-                console.error("Auth error:", err);
+                console.error("Auth error detail:", err);
                 // 認証エラー時も履歴セクションを表示（ただし空か、読み込み中表示になる）
                 document.getElementById('history-section').classList.remove('hidden');
+                document.getElementById('history-loading').textContent = "認証エラー: " + err.message;
             }
         };
 
         onAuthStateChanged(auth, (user) => {
+            console.log("Auth state changed:", user ? user.uid : "no user");
             currentUser = user;
             document.getElementById('history-section').classList.remove('hidden');
             if (user) {
                 setupHistoryListener(user.uid);
+            } else {
+                console.log("No user, waiting for auth...");
+                // 匿名認証を再試行
+                signInAnonymously(auth).catch(err => console.error("Retry auth error:", err));
             }
         });
 
@@ -597,16 +606,22 @@
         }
 
         function setupHistoryListener(userId) {
-            const q = collection(db, 'artifacts', appId, 'users', userId, 'compliment_history');
-            onSnapshot(q, (snapshot) => {
-                const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                // Sort by timestamp desc
-                docs.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
-                renderHistory(docs);
-            }, (error) => {
-                console.error("History error", error);
-                document.getElementById('history-loading').textContent = "履歴の読み込みに失敗しました";
-            });
+            console.log("Setting up history listener for user:", userId);
+            try {
+                const q = collection(db, 'artifacts', appId, 'users', userId, 'compliment_history');
+                onSnapshot(q, (snapshot) => {
+                    console.log("History snapshot received, size:", snapshot.size);
+                    const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    // Sort by timestamp desc
+                    docs.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+                    renderHistory(docs);
+                }, (error) => {
+                    console.error("History error detail:", error);
+                    document.getElementById('history-loading').textContent = "履歴の読み込みに失敗しました: " + error.message;
+                });
+            } catch (err) {
+                console.error("Setup history listener error:", err);
+            }
         }
 
         window.deleteHistoryItem = async (id) => {
