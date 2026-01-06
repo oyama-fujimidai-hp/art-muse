@@ -319,12 +319,16 @@
                     console.log("Using custom token");
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
-                    console.log("Using anonymous sign-in");
-                    await signInAnonymously(auth);
+                    // 既にログイン中か確認
+                    if (!auth.currentUser) {
+                        console.log("Using anonymous sign-in");
+                        await signInAnonymously(auth);
+                    } else {
+                        console.log("Already signed in as:", auth.currentUser.uid);
+                    }
                 }
             } catch (err) {
                 console.error("Auth error detail:", err);
-                document.getElementById('history-section').classList.remove('hidden');
                 document.getElementById('history-loading').textContent = "認証エラー: " + err.message + " (Code: " + err.code + ")";
             }
         };
@@ -667,16 +671,28 @@
         function setupHistoryListener(userId) {
             console.log("Setting up history listener for user:", userId);
             try {
-                const q = collection(db, 'artifacts', appId, 'users', userId, 'compliment_history');
+                // query を使って orderBy を適用
+                const historyRef = collection(db, 'artifacts', appId, 'users', userId, 'compliment_history');
+                const q = query(historyRef, orderBy('timestamp', 'desc'));
+
                 onSnapshot(q, (snapshot) => {
                     console.log("History snapshot received, size:", snapshot.size);
                     const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    // Sort by timestamp desc
-                    docs.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+                    // クエリでソート済みだが、念のため
                     renderHistory(docs);
                 }, (error) => {
                     console.error("History error detail:", error);
-                    document.getElementById('history-loading').textContent = "履歴の読み込みに失敗しました: " + error.message;
+                    // 権限エラー（インデックス未作成など）の場合はソートなしで試行
+                    if (error.code === 'failed-precondition' || error.code === 'permission-denied') {
+                        console.log("Retrying history listener without orderBy...");
+                        onSnapshot(historyRef, (snapshot) => {
+                            const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                            docs.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+                            renderHistory(docs);
+                        });
+                    } else {
+                        document.getElementById('history-loading').textContent = "履歴の読み込みに失敗しました: " + error.message;
+                    }
                 });
             } catch (err) {
                 console.error("Setup history listener error:", err);
