@@ -297,9 +297,6 @@
         let currentImageBase64 = null;
         let expandedHistoryItems = {};
 
-        // ローカル履歴のキー
-        const LOCAL_HISTORY_KEY = 'ART_MUSE_LOCAL_HISTORY';
-
         // Initialize Lucide Icons
         lucide.createIcons();
 
@@ -307,12 +304,9 @@
         const initAuth = async () => {
             console.log("initAuth: checking config", firebaseConfig);
 
-            // Firebase Configが未設定でもローカル履歴は読み込む
-            loadLocalHistory();
-
             if (!firebaseConfig || !firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_FIREBASE_API_KEY") {
                 console.warn("Firebase API Key is not set. Cloud history feature will be disabled.");
-                document.getElementById('history-loading').classList.add('hidden');
+                document.getElementById('history-loading').textContent = "Firebaseの設定が未完了のため、履歴機能は利用できません。";
                 return;
             }
             try {
@@ -325,50 +319,21 @@
                     await signInAnonymously(auth);
                 }
             } catch (err) {
-                console.error("Auth error:", err);
+                console.error("Auth error detail:", err);
+                document.getElementById('history-loading').textContent = "認証エラー: " + err.message + " (Code: " + err.code + ")";
             }
         };
-
-        function loadLocalHistory() {
-            const localData = localStorage.getItem(LOCAL_HISTORY_KEY);
-            if (localData) {
-                try {
-                    const items = JSON.parse(localData);
-                    renderHistory(items);
-                } catch (e) {
-                    console.error("Local history parse error:", e);
-                }
-            }
-        }
-
-        function saveLocalHistory(item) {
-            try {
-                const localData = localStorage.getItem(LOCAL_HISTORY_KEY);
-                let items = localData ? JSON.parse(localData) : [];
-                // 先頭に追加して最新を上に
-                items.unshift({
-                    id: 'local-' + Date.now(),
-                    ...item,
-                    timestamp: Date.now() // ローカル用にはミリ秒で保存
-                });
-                // 最大20件程度に制限
-                items = items.slice(0, 20);
-                localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(items));
-
-                // Firestoreがまだ読み込まれていない、またはオフラインの場合は即時反映
-                if (!currentUser) {
-                    renderHistory(items);
-                }
-            } catch (e) {
-                console.error("Local history save error:", e);
-            }
-        }
 
         onAuthStateChanged(auth, (user) => {
             console.log("Auth state changed:", user ? user.uid : "no user");
             currentUser = user;
             if (user) {
                 setupHistoryListener(user.uid);
+            } else {
+                console.log("No user, waiting for auth...");
+                if (firebaseConfig && firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_FIREBASE_API_KEY") {
+                    signInAnonymously(auth).catch(err => console.error("Retry auth error:", err));
+                }
             }
         });
 
@@ -543,7 +508,7 @@
                 2. 専門用語は避け、心のこもった温かい言葉を選ぶ。
                 3. 「優しさ」「温かみ」「癒やし」「安心感」などが伝わる視点を含める。
                 4. 批評的にならず、その絵があることで心が和むようなトーンで。
-                5. 出力フォーマットは純粋なテキストの箇条書き（行頭の記号は不要）だけにしてください。
+                5. 出力フォーマットは純粋なテキストの箇条書き（行頭の記記号は不要）だけにしてください。
             `;
 
             try {
@@ -681,47 +646,50 @@
         async function saveToHistory(lines) {
             try {
                 const storedImage = await processImageForStorage(currentImageBase64);
-                const historyItem = {
+
+                await addDoc(collection(db, 'artifacts', appId, 'users', currentUser.uid, 'compliment_history'), {
                     compliments: lines,
                     thumbnail: storedImage,
-                };
-
-                // 1. ローカルストレージに保存 (即時性・確実性)
-                saveLocalHistory(historyItem);
-
-                // 2. Firestoreに保存 (クラウド同期)
-                if (currentUser) {
-                    await addDoc(collection(db, 'artifacts', appId, 'users', currentUser.uid, 'compliment_history'), {
-                        ...historyItem,
-                        timestamp: serverTimestamp()
-                    });
-                }
+                    timestamp: serverTimestamp()
+                });
             } catch (err) {
                 console.error("Error saving history:", err);
             }
         }
 
+        function setupHistoryListener(userId) {
+            console.log("Setting up history listener for user:", userId);
+            try {
+                const historyRef = collection(db, 'artifacts', appId, 'users', userId, 'compliment_history');
+                const q = query(historyRef, orderBy('timestamp', 'desc'));
+
+                onSnapshot(q, (snapshot) => {
+                    console.log("History snapshot received, size:", snapshot.size);
+                    const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    renderHistory(docs);
+                }, (error) => {
+                    console.error("History error detail:", error);
+                    if (error.code === 'failed-precondition' || error.code === 'permission-denied') {
+                        onSnapshot(historyRef, (snapshot) => {
+                            const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                            docs.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+                            renderHistory(docs);
+                        });
+                    } else {
+                        document.getElementById('history-loading').textContent = "履歴の読み込みに失敗しました: " + error.message;
+                    }
+                });
+            } catch (err) {
+                console.error("Setup history listener error:", err);
+            }
+        }
+
         window.deleteHistoryItem = async (id) => {
+            if (!currentUser) return;
             if (!confirm('この履歴を削除しますか？')) return;
-
-            // ローカル履歴からの削除
-            if (id.startsWith('local-')) {
-                const localData = localStorage.getItem(LOCAL_HISTORY_KEY);
-                if (localData) {
-                    let items = JSON.parse(localData);
-                    items = items.filter(item => item.id !== id);
-                    localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(items));
-                    renderHistory(items);
-                }
-                return;
-            }
-
-            // Firestoreからの削除
-            if (currentUser) {
-                try {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'compliment_history', id));
-                } catch (err) { console.error(err); }
-            }
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'compliment_history', id));
+            } catch (err) { console.error(err); }
         };
 
         window.toggleHistoryExpand = (id) => {
@@ -764,14 +732,11 @@
             items.forEach(item => {
                 let dateStr = '日付不明';
                 if (item.timestamp) {
-                    // Firebase serverTimestamp() の場合は toMillis() が使える
-                    // 普通のJS Date オブジェクトや数値の場合も考慮
                     const date = item.timestamp.toMillis ? new Date(item.timestamp.toMillis()) : new Date(item.timestamp);
                     dateStr = date.toLocaleString('ja-JP', {
                         month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
                     });
                 } else {
-                    // 万が一 timestamp がない場合も現在時刻で補完
                     dateStr = new Date().toLocaleString('ja-JP', {
                         month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
                     });
