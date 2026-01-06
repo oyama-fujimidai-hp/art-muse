@@ -297,54 +297,78 @@
         let currentImageBase64 = null;
         let expandedHistoryItems = {};
 
+        // ローカル履歴のキー
+        const LOCAL_HISTORY_KEY = 'ART_MUSE_LOCAL_HISTORY';
+
         // Initialize Lucide Icons
         lucide.createIcons();
 
         // --- Auth Logic ---
-        // 認証フローの修正: カスタムトークンを優先し、失敗時に匿名認証へ
         const initAuth = async () => {
             console.log("initAuth: checking config", firebaseConfig);
-            // Firebase Configが正しく設定されていない場合は認証をスキップ
+
+            // Firebase Configが未設定でもローカル履歴は読み込む
+            loadLocalHistory();
+
             if (!firebaseConfig || !firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_FIREBASE_API_KEY") {
-                console.warn("Firebase API Key is not set. History feature will be disabled.");
-                document.getElementById('history-loading').textContent = "Firebaseの設定が未完了のため、履歴機能は利用できません。";
+                console.warn("Firebase API Key is not set. Cloud history feature will be disabled.");
+                document.getElementById('history-loading').classList.add('hidden');
                 return;
             }
             try {
                 console.log("Initializing auth...");
-                // 明示的にブラウザ永続性を設定
                 await setPersistence(auth, browserLocalPersistence);
 
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    console.log("Using custom token");
                     await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    // 既にログイン中か確認
-                    if (!auth.currentUser) {
-                        console.log("Using anonymous sign-in");
-                        await signInAnonymously(auth);
-                    } else {
-                        console.log("Already signed in as:", auth.currentUser.uid);
-                    }
+                } else if (!auth.currentUser) {
+                    await signInAnonymously(auth);
                 }
             } catch (err) {
-                console.error("Auth error detail:", err);
-                document.getElementById('history-loading').textContent = "認証エラー: " + err.message + " (Code: " + err.code + ")";
+                console.error("Auth error:", err);
             }
         };
+
+        function loadLocalHistory() {
+            const localData = localStorage.getItem(LOCAL_HISTORY_KEY);
+            if (localData) {
+                try {
+                    const items = JSON.parse(localData);
+                    renderHistory(items);
+                } catch (e) {
+                    console.error("Local history parse error:", e);
+                }
+            }
+        }
+
+        function saveLocalHistory(item) {
+            try {
+                const localData = localStorage.getItem(LOCAL_HISTORY_KEY);
+                let items = localData ? JSON.parse(localData) : [];
+                // 先頭に追加して最新を上に
+                items.unshift({
+                    id: 'local-' + Date.now(),
+                    ...item,
+                    timestamp: Date.now() // ローカル用にはミリ秒で保存
+                });
+                // 最大20件程度に制限
+                items = items.slice(0, 20);
+                localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(items));
+
+                // Firestoreがまだ読み込まれていない、またはオフラインの場合は即時反映
+                if (!currentUser) {
+                    renderHistory(items);
+                }
+            } catch (e) {
+                console.error("Local history save error:", e);
+            }
+        }
 
         onAuthStateChanged(auth, (user) => {
             console.log("Auth state changed:", user ? user.uid : "no user");
             currentUser = user;
-            // 履歴セクションは初期状態で表示されるように HTML 側で hidden を外したため、ここでは不要
             if (user) {
                 setupHistoryListener(user.uid);
-            } else {
-                console.log("No user, waiting for auth...");
-                // Firebase Configが有効な場合のみ匿名認証を再試行
-                if (firebaseConfig && firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_FIREBASE_API_KEY") {
-                    signInAnonymously(auth).catch(err => console.error("Retry auth error:", err));
-                }
             }
         });
 
@@ -657,54 +681,47 @@
         async function saveToHistory(lines) {
             try {
                 const storedImage = await processImageForStorage(currentImageBase64);
-
-                await addDoc(collection(db, 'artifacts', appId, 'users', currentUser.uid, 'compliment_history'), {
+                const historyItem = {
                     compliments: lines,
                     thumbnail: storedImage,
-                    timestamp: serverTimestamp()
-                });
+                };
+
+                // 1. ローカルストレージに保存 (即時性・確実性)
+                saveLocalHistory(historyItem);
+
+                // 2. Firestoreに保存 (クラウド同期)
+                if (currentUser) {
+                    await addDoc(collection(db, 'artifacts', appId, 'users', currentUser.uid, 'compliment_history'), {
+                        ...historyItem,
+                        timestamp: serverTimestamp()
+                    });
+                }
             } catch (err) {
                 console.error("Error saving history:", err);
             }
         }
 
-        function setupHistoryListener(userId) {
-            console.log("Setting up history listener for user:", userId);
-            try {
-                // query を使って orderBy を適用
-                const historyRef = collection(db, 'artifacts', appId, 'users', userId, 'compliment_history');
-                const q = query(historyRef, orderBy('timestamp', 'desc'));
-
-                onSnapshot(q, (snapshot) => {
-                    console.log("History snapshot received, size:", snapshot.size);
-                    const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    // クエリでソート済みだが、念のため
-                    renderHistory(docs);
-                }, (error) => {
-                    console.error("History error detail:", error);
-                    // 権限エラー（インデックス未作成など）の場合はソートなしで試行
-                    if (error.code === 'failed-precondition' || error.code === 'permission-denied') {
-                        console.log("Retrying history listener without orderBy...");
-                        onSnapshot(historyRef, (snapshot) => {
-                            const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                            docs.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
-                            renderHistory(docs);
-                        });
-                    } else {
-                        document.getElementById('history-loading').textContent = "履歴の読み込みに失敗しました: " + error.message;
-                    }
-                });
-            } catch (err) {
-                console.error("Setup history listener error:", err);
-            }
-        }
-
         window.deleteHistoryItem = async (id) => {
-            if (!currentUser) return;
             if (!confirm('この履歴を削除しますか？')) return;
-            try {
-                await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'compliment_history', id));
-            } catch (err) { console.error(err); }
+
+            // ローカル履歴からの削除
+            if (id.startsWith('local-')) {
+                const localData = localStorage.getItem(LOCAL_HISTORY_KEY);
+                if (localData) {
+                    let items = JSON.parse(localData);
+                    items = items.filter(item => item.id !== id);
+                    localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(items));
+                    renderHistory(items);
+                }
+                return;
+            }
+
+            // Firestoreからの削除
+            if (currentUser) {
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'compliment_history', id));
+                } catch (err) { console.error(err); }
+            }
         };
 
         window.toggleHistoryExpand = (id) => {
