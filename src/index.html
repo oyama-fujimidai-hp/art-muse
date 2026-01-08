@@ -303,7 +303,8 @@
 
             <!-- Footer -->
             <p class="text-center text-xs text-stone-400">
-                Powered by Gemini 3 Flash Preview • 画像と感想はブラウザ履歴として保存されます
+                Powered by Gemini 3 Flash Preview • 画像と感想はブラウザ履歴として保存されます <br>
+                <span id="user-id-display" class="opacity-50 text-[10px]"></span>
             </p>
 
         </div>
@@ -414,6 +415,7 @@
                     registerContainer.classList.add('hidden');
                     appContent.classList.remove('hidden');
                     logoutBtn.classList.remove('hidden');
+                    document.getElementById('user-id-display').textContent = `ID: ${user.uid.slice(0, 6)}...`;
                     setupHistoryListener(user.uid);
                 } else {
                     // Not logged in
@@ -425,6 +427,7 @@
                     registerContainer.classList.add('hidden');
                     appContent.classList.add('hidden');
                     logoutBtn.classList.add('hidden');
+                    document.getElementById('user-id-display').textContent = '';
                     // Clear history if needed or just hide
                     document.getElementById('history-grid').innerHTML = '';
                 }
@@ -846,30 +849,30 @@
 
                 try {
                     const historyRef = collection(db, 'artifacts', appId, 'users', userId, 'compliment_history');
-                    const q = query(historyRef, orderBy('timestamp', 'desc'));
+                    // Remove orderBy from query to avoid index errors, sort on client side instead
+                    const q = query(historyRef);
 
                     historyUnsubscribe = onSnapshot(q, (snapshot) => {
                         // Success: Clear timeout
                         if (historyLoadTimeout) clearTimeout(historyLoadTimeout);
 
                         console.log("History snapshot received, size:", snapshot.size);
-                        const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        let docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                        // Sort client-side (Newest first)
+                        docs.sort((a, b) => {
+                            const timeA = a.timestamp?.toMillis ? a.timestamp.toMillis() : (a.timestamp instanceof Date ? a.timestamp.getTime() : 0);
+                            const timeB = b.timestamp?.toMillis ? b.timestamp.toMillis() : (b.timestamp instanceof Date ? b.timestamp.getTime() : 0);
+                            return timeB - timeA;
+                        });
+
                         renderHistory(docs);
                     }, (error) => {
                         // Error: Clear timeout
                         if (historyLoadTimeout) clearTimeout(historyLoadTimeout);
 
                         console.error("History error detail:", error);
-                        if (error.code === 'failed-precondition' || error.code === 'permission-denied') {
-                            // Retry without ordering
-                            historyUnsubscribe = onSnapshot(historyRef, (snapshot) => {
-                                const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                                docs.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
-                                renderHistory(docs);
-                            });
-                        } else {
-                            loadingEl.textContent = "履歴の読み込みに失敗しました: " + error.message;
-                        }
+                        loadingEl.textContent = "履歴の読み込みに失敗しました: " + error.message;
                     });
                 } catch (err) {
                     if (historyLoadTimeout) clearTimeout(historyLoadTimeout);
