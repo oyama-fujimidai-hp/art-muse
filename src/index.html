@@ -806,37 +806,75 @@
             }
 
             let historyUnsubscribe = null;
+            let historyLoadTimeout = null;
 
             function setupHistoryListener(userId) {
                 console.log("Setting up history listener for user:", userId);
+
+                // Clean up previous listener and timeout
                 if (historyUnsubscribe) {
                     historyUnsubscribe();
                     historyUnsubscribe = null;
                 }
+                if (historyLoadTimeout) {
+                    clearTimeout(historyLoadTimeout);
+                    historyLoadTimeout = null;
+                }
+
+                const loadingEl = document.getElementById('history-loading');
+                loadingEl.innerHTML = `
+                    <i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2"></i>
+                    <p>履歴を読み込み中...</p>
+                `;
+                loadingEl.classList.remove('hidden');
+                document.getElementById('history-grid').classList.add('hidden');
+                document.getElementById('history-empty').classList.add('hidden');
+                lucide.createIcons();
+
+                // Set timeout for loading
+                historyLoadTimeout = setTimeout(() => {
+                    if (loadingEl && !loadingEl.classList.contains('hidden')) {
+                        loadingEl.innerHTML = `
+                            <p class="text-stone-400 mb-2">読み込みに時間がかかっています</p>
+                            <button onclick="location.reload()" class="text-orange-400 hover:underline text-sm flex items-center justify-center gap-1 mx-auto">
+                                <i data-lucide="refresh-cw" class="w-4 h-4"></i> ページを再読み込み
+                            </button>
+                        `;
+                        lucide.createIcons();
+                    }
+                }, 8000);
 
                 try {
                     const historyRef = collection(db, 'artifacts', appId, 'users', userId, 'compliment_history');
                     const q = query(historyRef, orderBy('timestamp', 'desc'));
 
                     historyUnsubscribe = onSnapshot(q, (snapshot) => {
+                        // Success: Clear timeout
+                        if (historyLoadTimeout) clearTimeout(historyLoadTimeout);
+
                         console.log("History snapshot received, size:", snapshot.size);
                         const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                         renderHistory(docs);
                     }, (error) => {
+                        // Error: Clear timeout
+                        if (historyLoadTimeout) clearTimeout(historyLoadTimeout);
+
                         console.error("History error detail:", error);
                         if (error.code === 'failed-precondition' || error.code === 'permission-denied') {
-                            // Retry without ordering if index is missing (often happens in dev)
+                            // Retry without ordering
                             historyUnsubscribe = onSnapshot(historyRef, (snapshot) => {
                                 const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                                 docs.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
                                 renderHistory(docs);
                             });
                         } else {
-                            document.getElementById('history-loading').textContent = "履歴の読み込みに失敗しました: " + error.message;
+                            loadingEl.textContent = "履歴の読み込みに失敗しました: " + error.message;
                         }
                     });
                 } catch (err) {
+                    if (historyLoadTimeout) clearTimeout(historyLoadTimeout);
                     console.error("Setup history listener error:", err);
+                    loadingEl.textContent = "エラーが発生しました: " + err.message;
                 }
             }
 
