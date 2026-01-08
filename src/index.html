@@ -328,7 +328,7 @@
         <script type="module">
             import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
             import { getAuth, onAuthStateChanged, signInWithCustomToken, setPersistence, browserLocalPersistence, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-            import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+            import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
             // ==========================================
             // 【設定エリア】
@@ -416,7 +416,7 @@
                     appContent.classList.remove('hidden');
                     logoutBtn.classList.remove('hidden');
                     document.getElementById('user-id-display').textContent = `ID: ${user.uid.slice(0, 6)}...`;
-                    setupHistoryListener(user.uid);
+                    loadHistory(user.uid);
                 } else {
                     // Not logged in
                     if (historyUnsubscribe) {
@@ -803,12 +803,13 @@
                         thumbnail: storedImage,
                         timestamp: serverTimestamp()
                     });
+                    // Reload history to reflect changes
+                    loadHistory(currentUser.uid);
                 } catch (err) {
                     console.error("Error saving history:", err);
                 }
             }
 
-            let historyUnsubscribe = null;
             let historyLoadTimeout = null;
 
             function setupHistoryListener(userId) {
