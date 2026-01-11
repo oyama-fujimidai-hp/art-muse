@@ -8,7 +8,7 @@ Art Muse は、絵画やイラストなどのアート作品に対して、AI（
 - **ユーザー認証**: メールアドレスとパスワードによる安全なアカウント管理（ログイン・新規登録）。
 - **アート感想生成**: アップロードした画像に基づき、AI が 5 つの「やさしい感想」を生成。
 - **履歴機能**: 過去に生成した感想と画像を Firebase (Firestore) に保存し、いつでも振り返ることが可能（アカウントごとに管理）。
-- **API キー設定**: Gemini API キーをブラウザのローカルストレージに安全に保存して利用。
+- **API キー設定・モデル選択**: Gemini API キーの設定と、用途に応じたモデル切り替え（Flash / Pro）が可能。
 - **レスポンシブデザイン**: Tailwind CSS を使用した、モバイル・PC 両対応のクリーンな UI。
 - **ダークモーダル**: 画像を拡大してじっくり確認できるモーダル表示機能。
 
@@ -16,7 +16,7 @@ Art Muse は、絵画やイラストなどのアート作品に対して、AI（
 
 - **Frontend**: HTML5, JavaScript (ES6+), Tailwind CSS
 - **Icons**: Lucide
-- **AI**: Google Gemini API (`gemini-3-flash-preview`)
+- **AI**: Google Gemini API (`gemini-3-flash-preview` / `gemini-3-pro-preview`)
 - **Backend/DB**: Firebase (Auth, Firestore)
 - **Deployment**: Docker, Nginx
 
