@@ -96,8 +96,29 @@
                 </div>
 
                 <div class="space-y-4">
-                    <!-- APIキー設定 -->
+                    <!-- モデル選択 -->
                     <div class="space-y-2">
+                        <label class="text-xs font-medium text-stone-500 flex items-center gap-1">
+                            <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
+                            使用モデル
+                        </label>
+                        <select id="model-select"
+                            class="w-full text-sm border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-200 transition-all bg-white">
+                            <optgroup label="Google Gemini">
+                                <option value="gemini-3-flash-preview">Gemini 3 Flash Preview（高速）</option>
+                                <option value="gemini-3-pro-preview">Gemini 3 Pro Preview（高品質）</option>
+                            </optgroup>
+                            <optgroup label="OpenAI GPT">
+                                <option value="gpt-5-mini">GPT-5 mini（高品質・OpenAI）</option>
+                            </optgroup>
+                        </select>
+                        <p class="text-[10px] text-stone-400 leading-tight">
+                            ※Gemini: Googleのモデル / GPT-5: OpenAIのモデルです。
+                        </p>
+                    </div>
+
+                    <!-- Gemini APIキー設定 -->
+                    <div id="gemini-key-section" class="space-y-2 pt-2 border-t border-stone-100">
                         <div class="flex items-center justify-between">
                             <label class="text-xs font-medium text-stone-500">Google AI Studio API Key</label>
                             <span id="key-status"
@@ -106,23 +127,21 @@
                         <input type="password" id="api-key-input" placeholder="AIzaSy..."
                             class="w-full text-sm border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-200 transition-all">
                         <p class="text-[10px] text-stone-400 leading-tight">
-                            ※キーはブラウザのlocalStorageにのみ保存され、サーバーへ送信されることはありません。
+                            ※Geminiモデル使用時に必要です。
                         </p>
                     </div>
 
-                    <!-- モデル選択 -->
-                    <div class="space-y-2 pt-2 border-t border-stone-100">
-                        <label class="text-xs font-medium text-stone-500 flex items-center gap-1">
-                            <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
-                            使用モデル
-                        </label>
-                        <select id="model-select"
-                            class="w-full text-sm border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-200 transition-all bg-white">
-                            <option value="gemini-3-flash-preview">Gemini 3 Flash Preview（高速）</option>
-                            <option value="gemini-3-pro-preview">Gemini 3 Pro Preview（高品質）</option>
-                        </select>
+                    <!-- OpenAI APIキー設定 -->
+                    <div id="openai-key-section" class="space-y-2 pt-2 border-t border-stone-100">
+                        <div class="flex items-center justify-between">
+                            <label class="text-xs font-medium text-stone-500">OpenAI API Key</label>
+                            <span id="openai-key-status"
+                                class="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-500">未設定</span>
+                        </div>
+                        <input type="password" id="openai-key-input" placeholder="sk-..."
+                            class="w-full text-sm border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-200 transition-all">
                         <p class="text-[10px] text-stone-400 leading-tight">
-                            ※Flashは高速、Proはより高品質な応答を生成します。
+                            ※GPT-5 miniモデル使用時に必要です。
                         </p>
                     </div>
 
@@ -323,7 +342,7 @@
 
             <!-- Footer -->
             <p class="text-center text-xs text-stone-400">
-                Powered by Gemini 3 Flash Preview • 画像と感想はブラウザ履歴として保存されます <br>
+                Powered by Gemini & GPT-5 • 画像と感想はブラウザ履歴として保存されます <br>
                 <span id="user-id-display" class="opacity-50 text-[10px]"></span>
             </p>
 
@@ -359,7 +378,10 @@
             // 1. Google AI Studio (Gemini) のAPIキー
             let apiKey = localStorage.getItem('GEMINI_API_KEY') || "";
 
-            // 2. 使用するGeminiモデル（デフォルトはFlash）
+            // 1.5 OpenAI APIキー
+            let openaiApiKey = localStorage.getItem('OPENAI_API_KEY') || "";
+
+            // 2. 使用するモデル（デフォルトはFlash）
             let selectedModel = localStorage.getItem('GEMINI_MODEL') || 'gemini-3-flash-preview';
 
             // 2. Firebase 構成オブジェクト
@@ -536,11 +558,17 @@
 
             // --- API Key & Model Management ---
             const apiKeyInput = document.getElementById('api-key-input');
+            const openaiKeyInput = document.getElementById('openai-key-input');
             const saveKeyBtn = document.getElementById('save-key-btn');
             const keyStatus = document.getElementById('key-status');
+            const openaiKeyStatus = document.getElementById('openai-key-status');
             const modelSelect = document.getElementById('model-select');
 
+            // モデルがGemini系かOpenAI系かを判定するヘルパー関数
+            const isOpenAIModel = (model) => model.startsWith('gpt-');
+
             const updateKeyStatus = () => {
+                // Gemini APIキー状態
                 if (apiKey) {
                     keyStatus.textContent = '設定済み';
                     keyStatus.className = 'text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-600';
@@ -548,6 +576,15 @@
                 } else {
                     keyStatus.textContent = '未設定';
                     keyStatus.className = 'text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-500';
+                }
+                // OpenAI APIキー状態
+                if (openaiApiKey) {
+                    openaiKeyStatus.textContent = '設定済み';
+                    openaiKeyStatus.className = 'text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-600';
+                    openaiKeyInput.value = openaiApiKey;
+                } else {
+                    openaiKeyStatus.textContent = '未設定';
+                    openaiKeyStatus.className = 'text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-500';
                 }
                 // モデル選択の復元
                 modelSelect.value = selectedModel;
@@ -574,24 +611,35 @@
             });
 
             saveKeyBtn.addEventListener('click', () => {
-                const val = apiKeyInput.value.trim();
+                const geminiVal = apiKeyInput.value.trim();
+                const openaiVal = openaiKeyInput.value.trim();
+
                 // モデル選択を保存
                 const modelVal = modelSelect.value;
                 localStorage.setItem('GEMINI_MODEL', modelVal);
                 selectedModel = modelVal;
 
-                if (val) {
-                    localStorage.setItem('GEMINI_API_KEY', val);
-                    apiKey = val;
-                    alert('設定を保存しました。');
-                    updateKeyStatus();
-                    closeSettings();
+                // Gemini APIキーを保存
+                if (geminiVal) {
+                    localStorage.setItem('GEMINI_API_KEY', geminiVal);
+                    apiKey = geminiVal;
                 } else {
                     localStorage.removeItem('GEMINI_API_KEY');
                     apiKey = "";
-                    alert('APIキーを削除しました。（モデル設定は保存されました）');
-                    updateKeyStatus();
                 }
+
+                // OpenAI APIキーを保存
+                if (openaiVal) {
+                    localStorage.setItem('OPENAI_API_KEY', openaiVal);
+                    openaiApiKey = openaiVal;
+                } else {
+                    localStorage.removeItem('OPENAI_API_KEY');
+                    openaiApiKey = "";
+                }
+
+                alert('設定を保存しました。');
+                updateKeyStatus();
+                closeSettings();
             });
 
             updateKeyStatus();
@@ -695,7 +743,13 @@
             `;
 
                 try {
-                    const text = await callGeminiAPI(currentImageBase64, prompt);
+                    let text;
+                    // モデルに応じてAPIを呼び分け
+                    if (isOpenAIModel(selectedModel)) {
+                        text = await callOpenAIAPI(currentImageBase64, prompt);
+                    } else {
+                        text = await callGeminiAPI(currentImageBase64, prompt);
+                    }
                     const lines = text.split('\n')
                         .map(line => line.replace(/^[\s-*•・]+/, '').trim())
                         .filter(line => line.length > 0);
@@ -786,6 +840,55 @@
                     if (retries < 3) {
                         await new Promise(r => setTimeout(r, Math.pow(2, retries) * 1000));
                         return callGeminiAPI(base64Image, promptText, retries + 1);
+                    }
+                    throw error;
+                }
+            }
+
+            // OpenAI API呼び出し関数
+            async function callOpenAIAPI(base64Image, promptText, retries = 0) {
+                const url = 'https://api.openai.com/v1/chat/completions';
+
+                const payload = {
+                    model: selectedModel,
+                    messages: [
+                        {
+                            role: 'user',
+                            content: [
+                                { type: 'text', text: promptText },
+                                {
+                                    type: 'image_url',
+                                    image_url: {
+                                        url: `data:image/jpeg;base64,${base64Image}`
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    max_tokens: 1500
+                };
+
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${openaiApiKey}`
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(`HTTP error! status: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+                    }
+                    const data = await response.json();
+                    const text = data.choices?.[0]?.message?.content;
+                    if (!text) throw new Error('No content generated');
+                    return text;
+                } catch (error) {
+                    if (retries < 3) {
+                        await new Promise(r => setTimeout(r, Math.pow(2, retries) * 1000));
+                        return callOpenAIAPI(base64Image, promptText, retries + 1);
                     }
                     throw error;
                 }
