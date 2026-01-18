@@ -776,8 +776,13 @@
                 }
             }
 
+            // 現在表示中のコメント一覧を保持する変数
+            let currentCompliments = [];
+
             function renderCompliments(lines) {
                 complimentsContainer.innerHTML = '';
+                currentCompliments = lines; // コメント一覧を保存
+
                 lines.forEach((line, idx) => {
                     const div = document.createElement('div');
                     div.className = "group relative p-4 bg-orange-50/50 hover:bg-orange-50 border border-orange-100 hover:border-orange-200 rounded-xl transition-all duration-200";
@@ -789,10 +794,22 @@
                 `;
                     complimentsContainer.appendChild(div);
                 });
+
+                // 「5つをまとめてコピー」ボタンを追加
+                const copyAllDiv = document.createElement('div');
+                copyAllDiv.className = "flex justify-center pt-3";
+                copyAllDiv.innerHTML = `
+                    <button id="copy-all-btn" onclick="copyAllText(this)" class="px-5 py-2.5 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white text-sm font-bold rounded-full shadow-lg shadow-orange-200 hover:shadow-orange-300 transition-all transform hover:scale-105 active:scale-95 flex items-center gap-2">
+                        <i data-lucide="clipboard-copy" class="w-4 h-4"></i>
+                        5つをまとめてコピー
+                    </button>
+                `;
+                complimentsContainer.appendChild(copyAllDiv);
+
                 lucide.createIcons();
             }
 
-            // Global function for copy button
+            // Global function for copy button（個別コピー）
             window.copyText = (text, btnElement) => {
                 const textArea = document.createElement("textarea");
                 textArea.value = text;
@@ -811,6 +828,39 @@
                     btnElement.innerHTML = originalIcon; // Revert using lucide logic would be cleaner but innerHTML is fast
                     // Ideally strictly re-render icon
                     btnElement.innerHTML = `<i data-lucide="copy" class="w-5 h-5"></i>`;
+                    lucide.createIcons();
+                }, 2000);
+            };
+
+            // Global function for copy all button（5つまとめてコピー）
+            window.copyAllText = (btnElement) => {
+                // 保存されたコメント一覧を改行区切りで結合
+                const allText = currentCompliments.join('\n');
+
+                const textArea = document.createElement("textarea");
+                textArea.value = allText;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+
+                // UI Feedback（ボタンを成功表示に変更）
+                const originalHTML = btnElement.innerHTML;
+                btnElement.innerHTML = `
+                    <i data-lucide="check" class="w-4 h-4"></i>
+                    コピーしました！
+                `;
+                btnElement.classList.remove('from-orange-400', 'to-orange-500', 'hover:from-orange-500', 'hover:to-orange-600');
+                btnElement.classList.add('from-green-400', 'to-green-500');
+                lucide.createIcons();
+
+                setTimeout(() => {
+                    btnElement.innerHTML = `
+                        <i data-lucide="clipboard-copy" class="w-4 h-4"></i>
+                        5つをまとめてコピー
+                    `;
+                    btnElement.classList.remove('from-green-400', 'to-green-500');
+                    btnElement.classList.add('from-orange-400', 'to-orange-500', 'hover:from-orange-500', 'hover:to-orange-600');
                     lucide.createIcons();
                 }, 2000);
             };

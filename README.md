@@ -1,14 +1,15 @@
 # Art Muse - アート感想ジェネレーター
 
-Art Muse は、絵画やイラストなどのアート作品に対して、AI（Gemini）が「プロの視点」で技術や感性を認めつつ、「やさしく」「温かい」感想を提案してくれる Web アプリケーションです。
+Art Muse は、絵画やイラストなどのアート作品に対して、AI（Gemini / GPT）が「プロの視点」で技術や感性を認めつつ、「やさしく」「温かい」感想を提案してくれる Web アプリケーションです。
 作家さんに作品を見せられたシーンなどで、相手のこだわりや才能を肯定し、喜んでもらえるようなポジティブなフィードバックを生成します。
 
 ## 🌟 主な機能
 
 - **ユーザー認証**: メールアドレスとパスワードによる安全なアカウント管理（ログイン・新規登録）。
 - **アート感想生成**: アップロードした画像に基づき、AI が作家さんの感性や技術を褒め称える「やさしい専門的な感想」を 5 つ生成。
+- **5つをまとめてコピー**: 生成された5つの感想をワンクリックでまとめてクリップボードにコピー可能。
 - **履歴機能**: 過去に生成した感想と画像を Firebase (Firestore) に保存し、いつでも振り返ることが可能（アカウントごとに管理）。
-- **API キー設定・モデル選択**: Gemini API キーの設定と、用途に応じたモデル切り替え（Flash / Pro）が可能。
+- **API キー設定・モデル選択**: Gemini / OpenAI GPT の API キー設定と、用途に応じたモデル切り替えが可能。
 - **レスポンシブデザイン**: Tailwind CSS を使用した、モバイル・PC 両対応のクリーンな UI。
 - **ダークモーダル**: 画像を拡大してじっくり確認できるモーダル表示機能。
 
@@ -16,7 +17,9 @@ Art Muse は、絵画やイラストなどのアート作品に対して、AI（
 
 - **Frontend**: HTML5, JavaScript (ES6+), Tailwind CSS
 - **Icons**: Lucide
-- **AI**: Google Gemini API (`gemini-3-flash-preview` / `gemini-3-pro-preview`)
+- **AI**: 
+  - Google Gemini API (`gemini-3-flash-preview` / `gemini-3-pro-preview`)
+  - OpenAI API (`gpt-5-mini` / `gpt-5-nano` / `gpt-4o-mini` / `gpt-5` / `gpt-5.1` / `gpt-5.2`)
 - **Backend/DB**: Firebase (Auth, Firestore)
 - **Deployment**: Docker, Nginx
 
@@ -25,7 +28,7 @@ Art Muse は、絵画やイラストなどのアート作品に対して、AI（
 ### ローカルでの実行
 1. リポジトリをクローンします。
 2. `src/index.html` をブラウザで開くか、ローカルサーバーを起動します。
-3. 画面右上の設定アイコンから Google AI Studio で取得した **Gemini API キー** を設定してください。
+3. 画面右上の設定アイコンから **Gemini API キー** または **OpenAI API キー** を設定してください。
 
 ### Docker での実行
 Docker を使用して、Nginx 上でアプリを素早く起動できます。
@@ -41,9 +44,11 @@ docker run -p 8080:8080 art-muse
 2. 登録済みのアカウントでログインします。
 3. 画像をドラッグ＆ドロップまたはクリックでアップロードします。
 4. 「感想を生成する」ボタンをクリックします。
-5. AI が生成した 5 つの感想が表示されます。気に入ったものはコピーボタンでコピーできます。
+5. AI が生成した 5 つの感想が表示されます。
+   - 個別にコピー：各感想横のコピーボタンをクリック
+   - まとめてコピー：「5つをまとめてコピー」ボタンで全感想を一括コピー
 6. 生成された内容は自動的に履歴に保存されます。
 
 ## ⚠️ 注意事項
-- このアプリを利用するには、別途 [Google AI Studio](https://aistudio.google.com/) で発行した Gemini API キーが必要です。
+- このアプリを利用するには、別途 [Google AI Studio](https://aistudio.google.com/) で発行した Gemini API キー、または [OpenAI](https://platform.openai.com/) で発行した API キーが必要です。
 - 履歴機能（Firebase）を利用するには、適切な Firebase プロジェクトの設定が必要です。
