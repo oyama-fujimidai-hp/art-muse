@@ -18,7 +18,7 @@ Art Muse は、絵画やイラストなどのアート作品に対して、AI（
 - **Frontend**: HTML5, JavaScript (ES6+), Tailwind CSS
 - **Icons**: Lucide
 - **AI**: 
-  - Google Gemini API (`gemini-3-flash-preview` / `gemini-3-pro-preview`)
+  - Google Gemini API (`gemini-3.1-flash-lite-preview`)
   - OpenAI API (`gpt-5-mini` / `gpt-5-nano` / `gpt-4o-mini` / `gpt-5` / `gpt-5.1` / `gpt-5.2`)
 - **Backend/DB**: Firebase (Auth, Firestore)
 - **Deployment**: Docker, Nginx

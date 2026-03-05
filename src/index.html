@@ -105,8 +105,7 @@
                         <select id="model-select"
                             class="w-full text-sm border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-200 transition-all bg-white">
                             <optgroup label="Google Gemini">
-                                <option value="gemini-3-flash-preview">Gemini 3 Flash Preview（高速）</option>
-                                <option value="gemini-3-pro-preview">Gemini 3 Pro Preview（高品質）</option>
+                                <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite Preview</option>
                             </optgroup>
                             <optgroup label="OpenAI GPT">
                                 <option value="gpt-5-mini">GPT-5 mini（低コスト・おすすめ）</option>
@@ -387,7 +386,7 @@
             let openaiApiKey = localStorage.getItem('OPENAI_API_KEY') || "";
 
             // 2. 使用するモデル（デフォルトはFlash）
-            let selectedModel = localStorage.getItem('GEMINI_MODEL') || 'gemini-3-flash-preview';
+            let selectedModel = localStorage.getItem('GEMINI_MODEL') || 'gemini-3.1-flash-lite-preview';
 
             // 2. Firebase 構成オブジェクト
             // プレビュー環境では __firebase_config を使用します。
